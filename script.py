@@ -43,7 +43,7 @@ Generation = np.arange(1, Maxgen+1) # Vector of generation number
 ymin = np.min(Pop) # Get minimum and maximum pop
 ymax = np.max(Pop)
 
-fig, axes = plt.subplots(nrows=2, ncols=2)
+fig, axes = plt.subplots(nrows=2, ncols=2, gridspec_kw={"wspace": 0.4, "hspace": 0.3})
 
 # Plot population and cohort trajectories
 for i in range(0, 4):
