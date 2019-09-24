@@ -84,3 +84,71 @@ axes[1,1].set(xlabel="Generation",
               ylabel="r")
 
 plt.show()
+
+print(Obs_lambda[Maxgen-1, 0],Obs_lambda[Maxgen-1, 0]/Lambda)
+
+#%% [markdown]
+####Adding density dependence
+
+#%%
+
+def BH_FUNCTION(n, c1, c2):
+    return(c1/(1+c2*n))
+
+def RICKER_FUNCTION(n, alpha, beta):
+    return(alpha*np.exp(-beta*n))
+
+c1 = 100
+c2 = 2*10**-3 # Beverthon Holt parameters
+
+## Beverton Holt function ##
+# Plot N(t) on t
+Maxgen = 20
+
+N_t = np.array([1.0])
+
+for i in range(1, Maxgen):
+    N_t = np.append(N_t, N_t[i-1]*BH_FUNCTION(N_t[i-1], c1, c2))
+
+fig, axes = plt.subplots(nrows=3, ncols=2, gridspec_kw={"hspace": 0.5, "right": 0.97, "wspace": 0.40})
+
+axes[0,0].plot(np.arange(1, Maxgen+1), N_t, color="black")
+axes[0,0].set(xlabel="Generation, t", ylabel="N(t)")
+
+# Plot N(t+1) on N(t)
+
+MaxN = 5000
+
+N_t = np.arange(1, MaxN+1)
+N_tplus1 = N_t * np.apply_along_axis(BH_FUNCTION,0 ,N_t , c1, c2)
+
+axes[0,1].plot(N_t, N_tplus1, color="black")
+axes[0,1].set(xlabel="N(t)", ylabel="N(t+1)")
+
+## Ricker function ##
+
+alpha = np.array([6,60]) # Parameter values
+beta = .0005
+
+# Plot N(t) on t for 2 values of alpha
+
+Maxgen = 40
+
+for j in range(0,2):
+    N_t = np.array([1.0])
+
+    for i in range(1,Maxgen):
+        N_t = np.append(N_t, N_t[i-1]*RICKER_FUNCTION(N_t[i-1], alpha[j], beta))
+
+    axes[1+j, 0].plot(np.arange(1, Maxgen+1), N_t, color="black")
+    axes[1+j, 0].set(xlabel="Generation, t", ylabel="N(t)")
+
+    MaxN = 10000
+    N_t = np.arange(1, MaxN+1)
+    N_tplus1 = N_t * np.apply_along_axis(RICKER_FUNCTION, 0, N_t, alpha[j], beta)
+
+    axes[1+j, 1].plot(N_t, N_tplus1, color="black")
+    axes[1+j, 1].plot(N_t, N_t, color="black")
+    axes[1+j, 1].set(xlabel="N(t)", ylabel="N(t+1)")
+
+plt.show()
