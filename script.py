@@ -290,60 +290,76 @@ def DD(alpha, beta, fi, n):
     return(fi*alpha*np.exp(-beta*n))
 
 def POP_DYNAMICS(x):
-    """Population dynamics function"""
-    #x = d[0,:]
-    x_resident = x[0] # Body size of resident population
-    x_invader = x[1] # Body size of invader
+    x_resident = x[0].copy() # Body size of resident population
+    x_invader = x[1].copy() # Body size of invader
     # Density  dependence parameters
     alpha = 1
     beta = 2*10**-5
     Maxage = 50
+    Maxgen = 30 # Number of gen to run the simulation
+    
     Resident_matrix = LESLIE(x_resident, Maxage) # Resident Leslie matrix
     Invader_matrix = LESLIE(x_invader, Maxage) # Invader leslie matrix
+    
     F_resident = Resident_matrix[0,:].copy() # Resident fertility
     F_invader = Invader_matrix[0,:].copy() # Invader fertility
-    Maxgen = 30 # Number of gen to run the simulation
+    
     n_resident = np.zeros(shape=(Maxage,1)) # Resident population vector
     n_resident[0] = 1 #initial resident pop size == one
-    for Igen in range(1,Maxgen): # Iterate over generations
+    
+    for Igen in range(1,Maxgen): # Iterate over generation
         N = sum(n_resident) # Total pop size
+        Resident_matrix[0] = DD(alpha, beta, F_resident, N)
         #Density Dependent fertility of resident for population at time = Igen
-        Resident_matrix[0,:] = DD(alpha, beta, F_resident,N)
         n_resident = np.dot(Resident_matrix, n_resident)
+    
+    
     # Introduce invaders
+    
     Maxgen = 100 # Number of generations to run the simulation
     n_invader = np.zeros(shape=(Maxage,1))
     n_invader[0] = 1 # Initial number of invader
-    Pop_invader = np.array([n_invader[0]]).copy() # Store the total population of invader each generation
+    Pop_invader = np.array([1]) # Store the total population of invader each generation
+    
     for Igen in range(1, Maxgen):
         N = sum(n_resident) + sum(n_invader)
+        
         # Density dependent fertility of resident
         Resident_matrix[0,:] = DD(alpha, beta, F_resident, N)
         # Storing the number of new residents
         n_resident = np.dot(Resident_matrix, n_resident)
+        
         # Density dependent fertility of invaders
         Invader_matrix[0,:] = DD(alpha, beta, F_invader, N)
         # Storing the number of new invaders
         n_invader = np.dot(Invader_matrix, n_invader)
         Pop_invader = np.append(Pop_invader, sum(n_invader))
+    
+    
     # Now do linear regression of log(Pop.invader) on Generation
+    
     Generation = np.arange(1, Maxgen+1)
     Nstart = 19 # Number of generations to ignore (i.e 20 first)
     # Linera regression
     Invasion_model = LinearRegression()
-    Invasion_model.fit(np.log(Pop_invader[Nstart:Maxgen].reshape((-1,1))), Generation[Nstart:Maxgen])
+    Invasion_model.fit(Generation[Nstart:Maxgen].reshape(-1,1), np.log(Pop_invader[Nstart:Maxgen]))
     Elasticity = Invasion_model.coef_
+
     return(Elasticity)
 
 N1 = 30 # Number of increment
+
 X_Resident = np.linspace(1,3,N1)
 X_Invader = X_Resident.copy()
-d = np.array(np.meshgrid(X_Resident, X_Invader)).reshape(2,len(X_Resident)*len(X_Resident)).T # Equivalent to R's expand.grid()
-z = np.apply_along_axis(POP_DYNAMICS, 1, d) 
-# Problème d'arrondis....
-z1 = z[0:450]
-z2 = z[451:900]
+
+d = (np.array(np.meshgrid(X_Resident, X_Invader))
+    .reshape(2,len(X_Resident)*len(X_Resident)).T) # Equivalent to R's expand.grid()
+z = np.apply_along_axis(POP_DYNAMICS, 1, d) # Apply POP_DYNAMICS for all X_Resident/X_Invader paired
+z_mat = z.copy().reshape(len(X_Resident),len(X_Invader)) # in plt.contour() Z must be a matrix so reshape z vector into a matrix
+
 fig = plt.figure()
 ax = fig.add_subplot(111)
-plt.contour(X_Resident, X_Invader, z.reshape((30,30)), color="black")
+CS = ax.contour(X_Resident, X_Invader, z_mat, levels=9, colors="black") # levels = draw *n+1* contour lines
+ax.clabel(CS)
+ax.set(title="PIP Plot")
 plt.show()
