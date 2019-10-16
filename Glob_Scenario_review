@@ -1,0 +1,681 @@
+#Invasibility Analysis Project (ICE)
+
+# Github Link : https://github.com/clementviolet/ICE_project
+
+##Packages
+import numpy as np
+from sklearn.linear_model import LinearRegression
+import matplotlib.pyplot as plt
+import random as rd
+from scipy import optimize
+
+##Functions
+
+##Scenario A
+def DDA_1(Alpha, N1, N2): # DD function for pairwise analysis
+    """
+    Density-dependence function.
+    Density-dependence function for Pairwise Invasibility Analysis in the scenario 3.
+
+    Parameters
+    ----------
+    Alpha: int
+        Measure of density independent recruitment.
+    N1: int
+        Number of individuals at time = t.
+    N2: int
+        Number of individuals at time = t.
+
+    Returns
+    -------
+    int
+        The new population size
+    """
+
+    Beta = Alpha * 0.001 # Set value of beta
+
+    N = N1 * Alpha * np.exp(-Beta * N2) # New population size
+
+    return(N)
+
+def DDA_2(x, N_total): # DD function for multiple invasibility analysis
+    """
+    Density-dependence function.
+    Density-dependence function for Multiple Invasibility Analysis in the scenario 3.
+
+    Parameters
+    ----------
+    x: array
+        An array containing two values: Alpha the Measure of density independent recruitment and N the population size for this alpha.
+    N_total: int
+        Total number of individuals at time = t.
+
+    Returns
+    -------
+    int
+        The new population size
+    """
+    Alpha = x[0]
+
+    N = x[1]
+
+    Beta = Alpha * 0.001
+
+    N = N * Alpha * np.exp(-Beta * N_total)
+
+    return(N)
+
+##Scenario B
+def DDB_1(Alpha, N1, N2): # DD function for pairwise analysis
+    """
+    Density-dependence function for PIP Analysis and Elasticity Analysis in the sceanrio 6.
+
+    Parameters
+    ----------
+    Alpha: int
+        Measure of density independent recruitment.
+    N1: int
+        Number of individuals at time = t.
+    N2: int
+        Number of individuals at time = t.
+
+    Returns
+    -------
+    int
+        The new population size
+    """
+    # Parameters for the survival
+    Amin = 1
+    Amax = 50
+
+    Bmin = 0
+    Bmax = 0.9
+
+    a = 20
+    Beta = 0.01
+
+    AA = (Alpha - Amin) / (Amax - Amin)
+
+    S = (Bmax - Bmin) * (1 - AA) / (1 + a * AA) # Survival
+
+    N = N1 * (Alpha * np.exp(-Beta * N2) + S) # New population
+
+    return(N)
+
+
+def DDB_2(x, N_total): # DD function for pairwise analysis
+    """
+    Density-dependence function.
+    Density-dependence function for Multiple Invasibility Analysis in the scenario 6.
+
+    Parameters
+    ----------
+    x: array
+        An array containing two values: Alpha the Measure of density independent recruitment and N the population size for this alpha.
+    N_total: int
+        Total number of individuals at time = t.
+
+    Returns
+    -------
+    int
+        The new population size
+    """
+
+    Alpha = x[0]
+
+    N = x[1]
+
+    # Parameters for the survival
+    Amin = 1
+    Amax = 50
+
+    Bmin = 0
+    Bmax = 0.9
+
+    a = 20
+    Beta = 0.01
+
+    AA = (Alpha - Amin) / (Amax - Amin)
+
+    S = (Bmax - Bmin) * (1 - AA) / (1 + a * AA) # Survival
+
+    N = N * (Alpha * np.exp(-Beta * N_total) + S) # New population
+
+    return(N)
+##Pairwise and Multiple Analysis
+def pair(alpha, DD_fun, pair = True, coeff = None, Maxgen1 = 50, Maxgen2 = 300, Plot = False):
+    """
+    Population Dynamics function pairwise analysis.
+
+    Parameters
+    ----------
+    alpha: array or int
+        If array alpha[0] is the resident trait value and alpha[1] the invader trait value used in PIP analysis
+    DD_fun: function
+        Density-dependence function used.
+    pair: bool
+        If True perform pairwise analysis, if False perfom invasibility analysis. In the last case you MUST specify a value for `coeff`parameter.
+    coeff: int
+        Coefficient for the invader trait. If supplied, an elasticity analysis is performed.
+    Maxgen1: int
+        Number of generations before invasion.
+    Maxgen2: int
+        Number of generations after invasion.
+    Plot: bool
+        If true, show the population dynamics.
+    Returns
+    -------
+    int
+        Elasticity coefficient: the rate of growth of the invader population.
+    """
+
+
+    if pair:
+        Alpha_resident = alpha[0] # Alpha for resident
+        Alpha_invader  = alpha[1] # Alpha for invader
+    else:
+        Alpha_resident = alpha # Alpha for resident
+        Alpha_invader  = alpha * coeff # Alpha for invader
+
+    Tot_gen = Maxgen1 + Maxgen2 # Total number of generations
+
+    N_resident = np.zeros(shape = (Tot_gen, 1)) # Allocate space
+    N_invader  = N_resident.copy()
+
+    N_resident[0]        = 1 # Initial number of residents and invaders
+    N_invader[Maxgen1-1] = 1
+
+    for i in range(1, Maxgen1): # Iterate over only resident
+        N_resident[i] = DD_fun(Alpha_resident, N_resident[i-1], N_resident[i-1])
+
+    for j in range(Maxgen1, Tot_gen):
+        N_total = N_resident[j-1] + N_invader[j-1] # Total population size
+
+        # Resident population size
+        N_resident[j] = DD_fun(Alpha_resident, N_resident[j-1], N_total)
+
+        # Invader population size
+        N_invader[j]  = DD_fun(Alpha_invader, N_invader[j-1], N_total)
+
+    Generation = np.linspace(1, Tot_gen, Tot_gen)
+
+    Nstart = 10 + Maxgen1
+
+    #Linear regression
+    Invasion_model = LinearRegression()
+    Invasion_model.fit(Generation[Nstart:Tot_gen].reshape(-1,1), np.log(N_invader[Nstart:Tot_gen]))
+    Elasticity = Invasion_model.coef_
+
+    return(Elasticity)
+
+def mult(Maxgen, MaxAlpha, Ninc,DD_fun, n_gen_plot = 1):
+    """
+    Population Dynamics function for multiple invasibility.
+
+    Parameters
+    ----------
+    Maxgen: int
+        Number of generations run
+    MaxAlpha: int
+        Maximum value of alpha
+    Ninc: int
+        Number of classes for alpha
+    DD_fun: function
+        Density-dependence function used.
+    n_gen_plot: int
+        Number of generation to plot
+
+    Returns
+    -------
+    Plots of multiple invasibility analysis
+
+    """
+
+    Stats = np.zeros(shape = (Maxgen, 3)) # Allocate space for statistics
+
+    Store = np.zeros(shape = (Maxgen, Ninc)) # Allocate space to store data for each generation
+
+    Data = np.zeros(shape = (Ninc, 2)) # Allocate space for alpha class and population size
+
+    Data[23, 1] = 1 # Initial population size and alpha class
+
+    Alpha = np.linspace(2, MaxAlpha, Ninc) # Set up alpha
+
+    Data[:,0] = Alpha # Place alpha in 1st column
+
+    for i in range(0, Maxgen):
+
+        N_total = sum(Data[:, 1]) # Total population size
+
+        Data[:,1] = np.apply_along_axis(DD_fun, 1, Data, N_total) # New cohort
+
+        Store[i,:] = Data[:, 1].copy() # Store values for this generation
+
+        # Keep track of population size, mean trait value and SD of trait
+
+        S = sum(Data[:, 1]) # Compute population size
+
+        SP = sum(np.multiply(Data[:,0], Data[:, 1])) # Compute the sum of the produce of the two columns
+
+        Stats[i, 0] = S # Storing population size
+
+        Stats[i, 1] = sum(np.multiply(Data[:,0], Data[:, 1])) / S # Mean trait value
+
+        SX1 = sum(np.multiply(np.power(Data[:,0], 2), Data[:,1]))
+
+        SX2 = np.power(SP, 2) / S
+
+        Stats[i, 2] = np.sqrt((SX1 - SX2) / (S-1))
+
+
+        # Introduce a mutant by picking a random integer between 1 and 50
+
+        Mutant = rd.randrange(0, 50)
+
+        Data[Mutant, 1] = Data[Mutant, 1] + 1 # Add mutant to class
+
+    Generation = np.linspace(1, Maxgen, Maxgen)
+
+
+    if n_gen_plot == 1: # Handling special case of n_gen_plot == 1.
+
+        fig, axes = plt.subplots(nrows = 2, ncols = 2, gridspec_kw={"wspace": 0.5, "hspace": 0.7})
+
+    elif n_gen_plot % 2 == 1:
+
+        # If we have an odd number of alpha vs number to plot, we must remove two of n_gen_plot for avoiding blanks plots
+
+        fig, axes = plt.subplots(nrows = 2+(n_gen_plot-2), ncols = 2, gridspec_kw={"wspace": 0.5, "hspace": 0.7})
+
+    else:
+
+        # Same principle as above, but we just need to remove one to avoid one blank cell.
+
+        fig, axes = plt.subplots(nrows = 2+(n_gen_plot-1), ncols = 2, gridspec_kw={"wspace": 0.5, "hspace": 0.7})
+
+
+    count = 0 # Count the number of plot done
+    i = 0 # indice for number of rows in plot array
+    n_r = n_gen_plot # Reverse order of which indice of generation to plot
+
+    while count != n_gen_plot:
+
+        axes[i,0].plot(Alpha, Store[Maxgen-n_r, :], color = "black")
+        axes[i,0].set(xlabel = ("Alpha (Generation = " + str(Maxgen-n_r+1) + ")"),
+                      ylabel = "Number")
+
+        count += 1
+        n_r   -= 1
+
+        if count == n_gen_plot:
+            break
+
+        axes[i,1].plot(Alpha, Store[Maxgen-n_r, :], color = "black")
+        axes[i,1].set(xlabel = ("Alpha (Generation = " + str(Maxgen-n_r+1) + ")"),
+                      ylabel = "Number")
+
+        i += 1 # Use a new line of plot
+        n_r -=1
+        count += 1
+
+    if n_gen_plot == 1: # Handling special case of n_gen_plot == 1
+        axes[i, 1].plot(Generation, Stats[:,0], color = "black")
+        axes[i, 1].set(xlabel = "Generation", ylabel = "Population size")
+
+        axes[i+1, 0].plot(Generation, Stats[:,1], color = "black")
+        axes[i+1, 0].set(xlabel = "Generation", ylabel = "Mean")
+
+        axes[i+1, 1].plot(Generation, Stats[:,2], color = "black")
+        axes[i+1, 1].set(xlabel = "Generation", ylabel = "SD")
+
+    elif i+1 == n_gen_plot: # If the last line of plot is fulled. i + 1 because i started from 0 and n_gen_plot from 1
+
+        axes[i, 0].plot(Generation, Stats[:,0], color = "black")
+        axes[i, 0].set(xlabel = "Generation", ylabel = "Population size")
+        axes[i, 1].plot(Generation, Stats[:,1], color = "black")
+        axes[i, 1].set(xlabel = "Generation", ylabel = "Mean")
+        axes[i+1, 0].plot(Generation, Stats[:,2], color = "black")
+        axes[i+1, 0].set(xlabel = "Generation", ylabel = "SD")
+
+    else:
+
+        axes[i, 1].plot(Generation, Stats[:,0], color = "black")
+        axes[i, 1].set(xlabel = "Generation", ylabel = "Population size")
+
+        axes[i+1, 0].plot(Generation, Stats[:,1], color = "black")
+        axes[i+1, 0].set(xlabel = "Generation", ylabel = "Mean")
+
+        axes[i+1, 1].plot(Generation, Stats[:,2], color = "black")
+        axes[i+1, 1].set(xlabel = "Generation", ylabel = "SD")
+
+    plt.show()
+
+    print("Mean alpha in last gen  = ", str(Stats[Maxgen-1,1]))
+    print("SD of alpha in last gen = ",str(Stats[Maxgen-1,2]))
+
+
+##Script
+print("=====================")
+print("Invasibility Analysis")
+print("=====================")
+print("Date : 17 October 2019")
+print("Authors : Bony Audrey, Signor Juliette, Silve Violette, Violet Clément")
+print("Our Github is available on https://github.com/clementviolet/ICE_project")
+print("")
+
+print("With invasibility analysis, we try to model the alterned-life clone capacity to invade a resident population.")
+print("In this project we will present you 2 scenarii. ")
+print("")
+
+print(" Scenario A : Trade-off between per capita growth rate and negative density dependance factor in the Ricker function to study mutliple type of function behavior (we will develop later).")
+print("")
+
+print(" Scenario B :  Invasion by a non-homogeneous population.")
+print("")
+
+input("Press enter to continue : ")
+print("")
+
+print("............")
+print(":Scenario A:")
+print(":..........:")
+print("")
+print("In this scenario, we want to model a population invaded by mutants. However, we take into account the density of dependence on the fertility of individuals. Thus a trade-off is introduced between the ability to produce offspring (per capita growth rate) and the ability to resist competition (negative density dependance factor). If the negative density dependance factor is strong then we are more sensitive to competition. ")
+print("")
+input("Press enter to continue : ")
+print("")
+
+print("Hypothesis:", '\n','1) Individuals reproduce once in their lifetime', '\n','2) No sexual reproduction, only clonal','\n','3) There is no age structure','\n','4) The recruitment (fecundity) is density-dependent (modelised with a Ricker function)', '\n', end='\n')
+print('   Ricker Function : N(t+1) = N(t) * alpha * exp( -beta * N(t))', '\n', '  By hypothesis : beta  = 0.001 * alpha (to model the trade off)',end='\n')
+print("")
+input("Press enter to continue : ")
+print("")
+
+"""
+Program Pairwise Scenario A
+"""
+print("Pairwise for ESS")
+print("")
+
+N1 = 30 # Nos of increments
+
+A_Resident = np.linspace(2, 4, N1) # Resident alpha
+A_Invader = A_Resident.copy() # Invader alpha
+
+d = (np.array(np.meshgrid(A_Resident, A_Invader)).reshape(2,len(A_Resident)*len(A_Resident)).T) # Equivalent to R's expand.grid()
+
+z = np.apply_along_axis(pair, 1, d, DDA_1) # Apply POP_DYNAMICS for all X_Resident/X_Invader paired
+z_mat = z.copy().reshape(len(A_Resident),len(A_Invader)) # in plt.contour() Z must be a matrix so reshape z vector into a matrix
+
+minA = 1
+maxA = 10
+
+Best_Alpha = optimize.brentq(pair, minA, maxA, args=(DDA_1, False, 0.995))
+
+fig = plt.figure()
+
+ax = fig.add_subplot(111)
+
+CS = ax.contour(A_Resident, A_Invader, z_mat, levels=9, colors="black")
+ax.clabel(CS) # Labels for the countour plot
+ax.scatter(Best_Alpha, Best_Alpha, edgecolors='black', facecolors='black',  s = 150) # s = size
+ax.set(title="PIP Plot")
+
+
+
+"""
+Interprétation Pairwise Scenario A
+"""
+print("We've got an ESS at : ")
+print("X* = " + str(round(Best_Alpha,6)))
+print("Indeed, the fixed point is attractor and the selection gradient sign is negative at X=X*. ")
+print("Biologically, it means the mutant/invader has no chance to invade the resident population.")
+
+plt.show()  #We're plotting here to allow you to see the plot and the interpretations at the same time
+
+print("")
+input("Press enter to continue : ")
+print("")
+
+"""
+Program Selection Gradient Analysis Scenario A
+"""
+print("Selection gradient Analysis")
+print('')
+
+# Calculs for plotting elasticity vs Alpha
+
+N_int = 30 # Nos of intervals for plot
+Alpha = np.linspace(minA, maxA, N_int)
+
+Elasticity = np.array([])
+
+# Calculs for plot Elasticity vs alpha
+
+for i in range(0, len(Alpha)):
+    Elasticity = np.append(Elasticity, pair(Alpha[i], DDA_1, False, 0.995))
+
+# Calculs for plot invasion when resident is optimal
+Coeff = np.divide(Alpha, Best_Alpha)
+
+Invasion_coeff = np.zeros(shape = (N_int, 1)) # Pre-allocating space
+
+for i in range(0, N_int):
+    Invasion_coeff[i] = pair(Best_Alpha, DDA_1, False, Coeff[i])
+
+# Calculus for Plot N(t+1) on N(t) for optimum alpha
+maxN = 1000 # Number of N
+
+N_t = np.linspace(1, maxN, maxN) # Values of N(t)
+
+N_tplus1 = np.zeros(shape = (maxN, 1))
+
+for i in range(0, maxN):
+
+    N_tplus1[i] = DDA_1(Best_Alpha, N_t[i], N_t[i])
+
+# Calculs for plotting N(t) on t
+
+N = np.repeat(1, 100) # Allocate memory
+
+for i in range(1, 100):
+    N[i] = DDA_1(Best_Alpha, N[i-1], N[i-1])
+
+fig, axes = plt.subplots(nrows=2, ncols=2, gridspec_kw={"wspace": 0.5, "hspace": 0.5}) # Space between two plots
+
+axes[0,0].plot(Alpha, Elasticity, color="black")
+axes[0,0].axhline(y=0, color="black")
+axes[0,0].set(ylim = [-0.006, 0.006],
+              xlabel = "Alpha",
+              ylabel = "Selection Gradient")
+
+axes[0,1].plot(Alpha, Invasion_coeff, color = "black")
+axes[0,1].scatter(Best_Alpha, 0, edgecolors='black', facecolors='none', s = 150)
+axes[0,1].set(xlabel = "Alpha",
+              ylabel = "Invasion coefficient")
+
+axes[1,0].plot(N_t, N_tplus1, color = "black")
+axes[1,0].set(xlabel = "N(t)", ylabel = "N(t+1)")
+
+axes[1,1].plot(np.linspace(1, 100, 100), N, color = "black")
+axes[1,1].set(xlabel = "Generation", ylabel = "Population")
+
+plt.figure(1)
+
+"""
+Interpretation Selection Gradient Analysis Scenario A
+"""
+print("1 : The graph at the top left shows the fixed point from the pairwise plot. The abscissa of the intersection between the two curves is what we call the Best alpha. It's the alpha at the ESS point. In this case the resident population can't be invade. 2 : The graph at the top right also allows you to read the best alpha to the maximum of the function. 3 : The graph at the bottom left exploits the capacity of the middle and shows that the growth rate decreases with the population and above a certain threshold the population decreases. 4 : The graph at the bottom right shows that despite the application of a perturbation, the number of individuals is constant because we are in a case of ESS")
+
+plt.show()
+
+print("")
+input("Press enter to continue : ")
+print("")
+"""
+Program Multiple Invasibility analysis Scenario A
+"""
+print("Multiple Invasibility analysis")
+print("")
+
+rd.seed(42) # Initialize the random number seed
+
+"""
+Interpretations Multiple Invasibility analysis Scenario A
+"""
+print("")
+print("1: The graph at the top left shows number individuals at the last generation. 2: The graph on the right shows a total survival because we are at equilibrium in a density-dependent model. 3: The graph at the bottom left shows that the average of the alphas stabilizes around the Bestalpha. 4: The graph at the bottom right shows that the variability among alphas stabilizes rapidly over time.")
+
+mult(Maxgen = 5000, MaxAlpha = 4, Ninc = 50, DD_fun = DDA_2) #function mult plot graphs so we're ploting graphs after interpretations.
+
+print("")
+input("Press enter to continue : ")
+print("")
+
+print("............")
+print(":Scenario B:")
+print(":..........:")
+print("")
+print("In this model, the survival parameter is added. We are thus moving from a trade-off fertility-resistance to competition to a trade-off fertility-survival. Thus the invader population is not homogeneous in the Multiple invasibility (the parameter alpha varies).")
+print("")
+print("Hypothesis:", '\n','1) Fecundity is density dependent', '\n','2) Survival is density independent','\n','3) Fecundity and survival are negatively correlated', end='\n')
+print("")
+input("Press enter to continue : ")
+print("")
+
+"""
+Program Pairwise Scenario B
+"""
+print('Pairwise for ESS')
+print("")
+N1 = 30 # Nos of increments
+
+A_Resident = np.linspace(5, 45, N1) # Resident alpha
+A_Invader = A_Resident.copy() # Invader alpha
+
+d = (np.array(np.meshgrid(A_Resident, A_Invader))
+    .reshape(2,len(A_Resident)*len(A_Resident)).T) # Equivalent to R's expand.grid(). Combinaition of Alpha Resident and Alpha Invader
+
+z = np.apply_along_axis(pair, 1, d, DDB_1) # Apply POP_DYNAMICS for all X_Resident/X_Invader paired
+z_mat = z.copy().reshape(len(A_Resident),len(A_Invader)) # in plt.contour() Z must be a matrix so reshape z vector into a matrix
+
+minA = 10
+maxA = 40
+Best_Alpha_B =  optimize.brentq(pair, minA, maxA, args=(DDB_1, False, 0.9675499))
+
+fig = plt.figure()
+
+ax = fig.add_subplot(111)
+
+CS = ax.contour(A_Resident, A_Invader, z_mat, levels=9, colors="black")
+ax.clabel(CS) # Labels for the countour plot
+ax.scatter(Best_Alpha_B, Best_Alpha_B, edgecolors='black', facecolors='black',  s = 150) # s = size
+ax.set(title="PIP Plot")
+
+"""
+Interpretation Pairwise Scenario B
+"""
+print("We've got an Branching point at : ")
+print("X* = " + str(round(Best_Alpha_B,6)))
+print("Indeed, the fixed point is attractor and the selection gradient sign is positive at X=X*. ")
+print("Biologically, it means the mutant/invader can invade the resident population and coexist with it.")
+
+plt.show()
+
+print("")
+input("Press enter to continue : ")
+print("")
+
+"""
+Program Selection gradient Analysis Scenario B
+"""
+print("Selection gradient Analysis")
+print("")
+# Calculs for plotting elasticity vs Alpha
+N_int = 30 # Nos of intervals for plot
+Alpha = np.linspace(minA, maxA, N_int)
+
+Elasticity = np.array([])
+
+# Calculs for plot Elasticity vs alpha
+
+for i in range(0, len(Alpha)):
+    Elasticity = np.append(Elasticity, pair(Alpha[i], DDB_1, False, 0.995))
+
+# Calculs for plot invasion when resident is optimal
+Coeff = np.divide(Alpha, Best_Alpha_B)
+
+Invasion_coeff = np.zeros(shape = (N_int, 1)) # Pre-allocating space
+
+for i in range(0, N_int):
+    Invasion_coeff[i] = pair(Best_Alpha_B, DDB_1, False, Coeff[i])
+
+# Calculus for Plot N(t+1) on N(t) for optimum alpha
+maxN = 1000 # Number of N
+
+N_t = np.linspace(1, maxN, maxN) # Values of N(t)
+
+N_tplus1 = np.zeros(shape = (maxN, 1))
+
+for i in range(0, maxN):
+
+    N_tplus1[i] = DDB_1(Best_Alpha_B, N_t[i], N_t[i])
+
+# Calculs for plotting N(t) on t
+
+N = np.repeat(1, 100) # Allocate memory
+
+for i in range(1, 100):
+    N[i] = DDB_1(Best_Alpha_B, N[i-1], N[i-1])
+
+fig, axes = plt.subplots(nrows=2, ncols=2, gridspec_kw={"wspace": 0.5, "hspace": 0.5}) # Space between two plots
+
+axes[0,0].plot(Alpha, Elasticity, color="black")
+axes[0,0].axhline(y=0, color="black")
+axes[0,0].set(ylim = [-0.006, 0.006],
+              xlabel = "Alpha",
+              ylabel = "Elasticity")
+
+axes[0,1].plot(Alpha, Invasion_coeff, color = "black")
+axes[0,1].scatter(Best_Alpha_B, 0, edgecolors='black', facecolors='none', s = 150)
+axes[0,1].set(xlabel = "Alpha",
+              ylabel = "Invasion coefficient")
+
+axes[1,0].plot(N_t, N_tplus1, color = "black")
+axes[1,0].set(xlabel = "N(t)", ylabel = "N(t+1)")
+
+axes[1,1].plot(np.linspace(1, 100, 100), N, color = "black")
+axes[1,1].set(xlabel = "Generation", ylabel = "Population")
+
+Invader_A = 10 # Alpha for invader
+Coeff = np.divide(Invader_A, Best_Alpha_B)
+
+pair(Best_Alpha_B, DDB_1, coeff = Coeff, pair = False, Plot = True)
+
+"""
+Interpretation Selection gradient Analysis Scenario B
+"""
+print("1 : The graph at the top left shows the fixed point from the pairwise plot. In this case the resident population can be invade at his stability state. 2 : The graph at the top right shows two values of alpha allowing a good invasion by mutants/invaders . 3 : The graph at the bottom left exploits the capacity of the middle and shows that the growth rate decreases with the population and above a certain threshold the population decreases. 4 : The graph at the bottom right shows the population varies widely around an average value. ")
+plt.show()
+
+print("")
+input("Press enter to continue : ")
+print("")
+"""
+Program Multiple Invasibility analysis Scenario B
+"""
+print("Multiple Invasibility analysis")
+print("")
+
+rd.seed(1234) # Initialize the random number seed
+
+"""
+Interpretations Multiple Invasibility analysis Scenario B
+"""
+print("Those values poor infos cause big variation")
+print("1-3: The first three graphs show the frequency of individuals according to alpha over the last three generations (graph 1 for the n-2 generation, graph 2 for the n-1 generation, graph 3 for the n generation) . As you can see, the average value varies and it can be seen that a better alpha value does not emerge since several peaks coexist (even if one of them seems to predominate) 4: The graph at the middle right shows population size varies a lot. 5 : The graph at the bottow left, the average of alpha oscillates a lot around a value. 6 : The graph at the bottom right shows variability oscillates regularly. The two last graph  illustrate well the fact that we are tending towards a singular point (oscillation around an average value) but that the balance is not ecologically stable (from one generation to the next the values vary greatly). This is the definition of a Branching point ")
+
+mult(Maxgen = 10000, MaxAlpha = 50, Ninc = 50, DD_fun = DDB_2, n_gen_plot = 3)
+
+print("")
+print("End of the script")
