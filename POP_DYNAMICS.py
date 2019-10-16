@@ -195,33 +195,33 @@ def mult(Maxgen, MaxAlpha, Ninc,DD_fun, n_gen_plot = 1):
         count += 1
         
     if n_gen_plot == 1: # Handling special case of n_gen_plot == 1. Maybe not the best way to handle it, but I'm too tired to find something cleaner
-        axes[i, 1].plot(Generation, Stats[:,0], color = "black")
+        axes[i, 1].plot(Generation[Maxgen-101:Maxgen-1], Stats[Maxgen-101:Maxgen-1,0], color = "black")
         axes[i, 1].set(xlabel = "Generation", ylabel = "Population size")
         
-        axes[i+1, 0].plot(Generation, Stats[:,1], color = "black")
+        axes[i+1, 0].plot(Generation[Maxgen-101:Maxgen-1], Stats[Maxgen-101:Maxgen-1,1], color = "black")
         axes[i+1, 0].set(xlabel = "Generation", ylabel = "Mean")
     
-        axes[i+1, 1].plot(Generation, Stats[:,2], color = "black")
+        axes[i+1, 1].plot(Generation[(Maxgen-101):(Maxgen-1)], Stats[Maxgen-101:Maxgen-1,2], color = "black")
         axes[i+1, 1].set(xlabel = "Generation", ylabel = "SD")
     
     elif i+1 == n_gen_plot: # If the last line of plot is fulled. i + 1 because i started from 0 and n_gen_plot from 1
         
-        axes[i, 0].plot(Generation, Stats[:,0], color = "black")
+        axes[i, 0].plot(Generation[Maxgen-101:Maxgen-1], Stats[Maxgen-101:Maxgen-1,0], color = "black")
         axes[i, 0].set(xlabel = "Generation", ylabel = "Population size")
-        axes[i, 1].plot(Generation, Stats[:,1], color = "black")
+        axes[i, 1].plot(Generation[Maxgen-101:Maxgen-1], Stats[Maxgen-101:Maxgen-1,1], color = "black")
         axes[i, 1].set(xlabel = "Generation", ylabel = "Mean")
-        axes[i+1, 0].plot(Generation, Stats[:,2], color = "black")
+        axes[i+1, 0].plot(Generation[Maxgen-101:Maxgen-1], Stats[Maxgen-101:Maxgen-1,2], color = "black")
         axes[i+1, 0].set(xlabel = "Generation", ylabel = "SD")
         
     else:
         
-        axes[i, 1].plot(Generation, Stats[:,0], color = "black")
+        axes[i, 1].plot(Generation[Maxgen-101:Maxgen-1], Stats[Maxgen-101:Maxgen-1,0], color = "black")
         axes[i, 1].set(xlabel = "Generation", ylabel = "Population size")
         
-        axes[i+1, 0].plot(Generation, Stats[:,1], color = "black")
+        axes[i+1, 0].plot(Generation[Maxgen-101:Maxgen-1], Stats[Maxgen-101:Maxgen-1,1], color = "black")
         axes[i+1, 0].set(xlabel = "Generation", ylabel = "Mean")
     
-        axes[i+1, 1].plot(Generation, Stats[:,2], color = "black")
+        axes[i+1, 1].plot(Generation[Maxgen-101:Maxgen-1], Stats[Maxgen-101:Maxgen-1,2], color = "black")
         axes[i+1, 1].set(xlabel = "Generation", ylabel = "SD")
         
     plt.show()
